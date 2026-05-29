@@ -6,7 +6,6 @@
 @layer base {
   body, html {
     @apply bg-[#000000] text-gray-200 antialiased h-screen w-screen overflow-hidden m-0 p-0;
-    /* Using Roboto to closely mimic Samsung's clean Android aesthetic */
     font-family: 'Roboto', sans-serif;
   }
 }
@@ -15,30 +14,34 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Premium Ultra-Subtle Reflective Border (Enterprise Grade) */
-.reflective-border {
+/* Premium Animated Border Card (Mac Style) */
+.mac-card-wrapper {
   position: relative;
   border-radius: 1rem;
-  background: #0a0a0a;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.reflective-border::before {
+.mac-card-wrapper::before {
   content: "";
   position: absolute;
-  inset: -1px;
-  border-radius: 1.05rem;
+  inset: -2px;
+  border-radius: 1.1rem;
   background: conic-gradient(
     from var(--angle),
-    #2a2a2a,
-    #ffffff,
-    #2a2a2a,
-    #050505,
-    #2a2a2a
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.05)
   );
   z-index: -1;
-  animation: spin 8s linear infinite;
-  opacity: 0.5;
+  animation: spin 6s linear infinite;
+}
+
+.mac-card-inner {
+  @apply bg-[#0a0a0a]/95 backdrop-blur-3xl m-[1px] rounded-[0.95rem] flex-1 flex flex-col min-h-0 relative overflow-hidden;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
 @property --angle {
@@ -52,13 +55,7 @@
   to { --angle: 360deg; }
 }
 
-/* Sophisticated Terminal Stream */
-.data-stream-container {
-  overflow: hidden;
-  position: relative;
-  background: #050505;
-}
-
+/* Scanline */
 .scanline {
   width: 100%;
   height: 50px;
@@ -67,6 +64,7 @@
   bottom: 100%;
   animation: scanline 4s linear infinite;
   pointer-events: none;
+  z-index: 50;
 }
 
 @keyframes scanline {
@@ -74,11 +72,25 @@
   100% { bottom: -50px; }
 }
 
-.glass-panel {
-  @apply bg-[#0a0a0a]/90 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.8)];
+/* Pipeline Connecting Line Pulse */
+.pipeline-pulse {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  transform: translateY(-50%);
+  z-index: -5;
+  animation: slide-pulse 3s ease-in-out infinite;
 }
 
-/* Custom Scrollbar for terminal only */
+@keyframes slide-pulse {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
 }
