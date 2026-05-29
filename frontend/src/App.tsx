@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Lock, Unlock, Server, ArrowRight, Fingerprint, Activity, Check, XCircle, AlertTriangle, Building, CreditCard } from 'lucide-react';
+import { Shield, Lock, Unlock, Server, ArrowRight, Fingerprint, Activity, Check, XCircle, AlertTriangle, Building, CreditCard, ChevronRight, Binary, Database } from 'lucide-react';
 
 type Step = 'IDLE' | 'KEY_GEN' | 'ENCRYPT' | 'TRANSMIT' | 'FHE_EVAL' | 'DECRYPT' | 'RESULT';
 
@@ -18,6 +18,29 @@ const DUMMY_LWE_CIPHERTEXT = [
   "0x5e8f204a 6c9b1d3f 8e5a2c7b 1a9b3c7d"
 ];
 
+const PHASE2_DETAILS = {
+  'KEY_GEN': {
+    title: 'Client Key Generation (TFHE-rs)',
+    desc: 'Local generation of public evaluation keys and secret decryption keys.',
+    specs: ['LWE Dimension (n): 688', 'Polynomial Size (N): 2048', 'Key Location: Knox Vault (Memory)', 'Plaintext Leaked: 0%']
+  },
+  'ENCRYPT': {
+    title: 'Feature Quantization & LWE Encryption',
+    desc: 'Input features are 8-bit quantized and encrypted with injected Gaussian noise to form Learning With Errors (LWE) ciphertexts.',
+    specs: ['Quantization: 8-bit Integer', 'Algorithm: LWE (Learning with Errors)', 'Noise Distribution: Gaussian', 'Execution: Client-Side (Local)']
+  },
+  'FHE_EVAL': {
+    title: 'Blind Homomorphic Evaluation',
+    desc: 'Server executes the compiled XGBoost circuit strictly over ciphertext. Uses Programmable Bootstrapping (PBS) to manage noise.',
+    specs: ['Max Multiplicative Depth: 3', 'Target Model: XGBoost (Pruned)', 'Engine: Concrete ML (Zama)', 'Execution: Server-Side (Untrusted)']
+  },
+  'DECRYPT': {
+    title: 'Client-Side Local Decryption',
+    desc: 'The encrypted inference result is decrypted locally using the Knox-secured Secret Key, revealing the final fraud probability.',
+    specs: ['Decryption Key: Secret (LWE)', 'Data Integrity: Preserved', 'Final Output: Plaintext Probability', 'Execution: Client-Side (Local)']
+  }
+};
+
 export default function App() {
   const [step, setStep] = useState<Step>('IDLE');
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -30,6 +53,9 @@ export default function App() {
   const [merchant, setMerchant] = useState<string>("Apple Store (Cupertino)");
   const [demoIntent, setDemoIntent] = useState<"normal"|"high_risk">("normal");
 
+  // Expanded Node State
+  const [expandedNode, setExpandedNode] = useState<string | null>(null);
+
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -40,30 +66,33 @@ export default function App() {
     setMetrics(null);
     setFraudData({prob: 0, factors: []});
     setActiveCiphertext([]);
+    setExpandedNode(null);
     
     // 1. Key Generation
     setStep('KEY_GEN');
+    setExpandedNode('KEY_GEN');
     for (let i = 0; i < 3; i++) {
       setActiveCiphertext(p => [...p, `[Client] Generating Knox LWE Secret Key block ${i+1}...`]);
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 400));
     }
-    await new Promise(r => setTimeout(r, 400));
     
     // 2. Encrypt
     setStep('ENCRYPT');
-    setActiveCiphertext(p => [...p, "", `[Client] Encrypting $${amount} at ${merchant}:`]);
+    setExpandedNode('ENCRYPT');
+    setActiveCiphertext(p => [...p, "", `[Client] Quantizing to 8-bit & Encrypting $${amount} at ${merchant}:`]);
     for (const line of DUMMY_LWE_CIPHERTEXT) {
       setActiveCiphertext(p => [...p, `  > ${line}`]);
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 200));
     }
     
     // 3. Transmit
     setStep('TRANSMIT');
-    setActiveCiphertext(p => [...p, "", "[Network] Transmitting encrypted bytes over TLS 1.3..."]);
-    await new Promise(r => setTimeout(r, 600));
+    setActiveCiphertext(p => [...p, "", "[Network] Transmitting LWE ciphertext over TLS 1.3..."]);
+    await new Promise(r => setTimeout(r, 800));
     
     // 4. Server FHE Eval
     setStep('FHE_EVAL');
+    setExpandedNode('FHE_EVAL');
     setActiveCiphertext(p => [...p, "", "[Server] Initializing Zero-Knowledge XGBoost Circuit..."]);
     
     try {
@@ -83,19 +112,21 @@ export default function App() {
       setActiveCiphertext(p => [
         ...p,
         `[Server] TFHE Bootstraps Executed: ${data.metrics.bootstraps_performed}`,
-        `[Server] LUT Operations: ${data.metrics.lut_operations}`,
+        `[Server] LUT Operations (Concrete ML): ${data.metrics.lut_operations}`,
         `[Server] Inference Complete (${data.metrics.evaluation_time_ms}ms)`,
         "[Network] Sending Encrypted Prediction back to Client..."
       ]);
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1500));
       
       // 5. Decrypt
       setStep('DECRYPT');
+      setExpandedNode('DECRYPT');
       setActiveCiphertext(p => [...p, "", "[Client] Unlocking prediction with Knox Secret Key..."]);
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1200));
       
       // 6. Result
       setStep('RESULT');
+      setExpandedNode(null);
       setFraudData({
         prob: data.is_fraud_probability,
         factors: data.factors
@@ -132,12 +163,12 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-medium text-white tracking-wide">SAMSUNG PRISM</h1>
-            <p className="text-gray-500 text-[10px] font-mono tracking-widest uppercase mt-0.5">Privacy-Preserving FHE Engine</p>
+            <p className="text-gray-500 text-[10px] font-mono tracking-widest uppercase mt-0.5">Privacy-Preserving FHE XGBoost Engine</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2 border border-white/10 px-3 py-1.5 rounded-full bg-white/5">
+        <div className="flex items-center space-x-2 border border-white/10 px-3 py-1.5 rounded-full bg-white/5 cursor-help" title="Based on Concrete ML & TFHE-rs">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-          <span className="text-[10px] font-mono text-gray-300 uppercase tracking-widest">Enclave Live</span>
+          <span className="text-[10px] font-mono text-gray-300 uppercase tracking-widest">Phase 2 Architecture</span>
         </div>
       </div>
 
@@ -156,7 +187,7 @@ export default function App() {
                 <select 
                   onChange={handleScenarioChange}
                   disabled={step !== 'IDLE'}
-                  className="bg-black border border-white/20 text-white text-[10px] uppercase tracking-wider rounded-md px-2 py-1 outline-none"
+                  className="bg-black border border-white/20 text-white text-[10px] uppercase tracking-wider rounded-md px-2 py-1 outline-none cursor-pointer"
                 >
                   <option value="normal">Standard Auth</option>
                   <option value="high_risk">Fraud Attempt</option>
@@ -216,7 +247,9 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 className="glass-panel p-6 flex-grow"
               >
-                <h3 className="text-[10px] font-medium text-gray-500 mb-6 uppercase tracking-widest">FHE Inference Telemetry</h3>
+                <h3 className="text-[10px] font-medium text-gray-500 mb-6 uppercase tracking-widest flex items-center">
+                  <Binary className="w-3 h-3 mr-2" /> FHE Inference Telemetry
+                </h3>
                 <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                   <div>
                     <div className="text-2xl font-light text-white">{metrics.bootstraps_performed}</div>
@@ -243,35 +276,83 @@ export default function App() {
         {/* Right Column: Visual Pipeline & Data Stream */}
         <div className="xl:col-span-8 flex flex-col space-y-6 h-full">
           
-          {/* Top: The Architectural Flow */}
+          {/* Top: The Architectural Flow (Phase 2 Specific) */}
           <div className="glass-panel px-8 py-6 flex-none">
-             <div className="flex justify-between items-center relative">
+             <div className="flex justify-between items-center relative z-10">
                 <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -z-10"></div>
                 {['KEY_GEN', 'ENCRYPT', 'FHE_EVAL', 'DECRYPT'].map((s, idx) => {
                   const icons = [<Fingerprint/>, <Lock/>, <Server/>, <Unlock/>];
-                  const titles = ["Knox Key", "Encrypt Data", "Blind Eval", "Local Decrypt"];
-                  const isActive = step === s;
+                  const titles = ["Knox Key", "Quantize & Encrypt", "Blind Inference", "Local Decrypt"];
+                  // Phase 2 Color Coding
+                  const colors = ['#3b82f6', '#a855f7', '#f59e0b', '#10b981']; 
+                  const bgColors = ['rgba(59,130,246,0.1)', 'rgba(168,85,247,0.1)', 'rgba(245,158,11,0.1)', 'rgba(16,185,129,0.1)'];
+                  
+                  const isActive = step === s || expandedNode === s;
                   const isPast = ['KEY_GEN','ENCRYPT','TRANSMIT','FHE_EVAL','DECRYPT','RESULT'].indexOf(step) > idx;
+                  const targetColor = isActive ? colors[idx] : isPast ? '#4b5563' : '#1f2937';
                   
                   return (
-                    <div key={s} className="flex flex-col items-center bg-[#000000] px-4">
+                    <div 
+                      key={s} 
+                      className="flex flex-col items-center bg-[#000000] px-4 cursor-pointer group"
+                      onClick={() => setExpandedNode(expandedNode === s ? null : s)}
+                    >
                       <motion.div 
                         animate={{ 
-                          borderColor: isActive ? '#ffffff' : isPast ? '#333' : '#1a1a1a',
-                          backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : '#000000',
-                          scale: isActive ? 1.05 : 1
+                          borderColor: targetColor,
+                          backgroundColor: isActive ? bgColors[idx] : '#000000',
+                          scale: isActive ? 1.15 : 1
                         }}
-                        className="w-12 h-12 rounded-full border flex items-center justify-center mb-3 transition-colors"
+                        className="w-12 h-12 rounded-full border flex items-center justify-center mb-3 transition-colors relative"
                       >
-                        {React.cloneElement(icons[idx], { className: "w-5 h-5 text-gray-300", strokeWidth: 1.5 })}
+                        {React.cloneElement(icons[idx], { className: `w-5 h-5 transition-colors`, style: { color: isActive ? colors[idx] : isPast ? '#9ca3af' : '#4b5563' }, strokeWidth: 1.5 })}
+                        
+                        {/* Pulse effect when active */}
+                        {isActive && step === s && (
+                          <motion.div 
+                            initial={{ scale: 1, opacity: 0.5 }}
+                            animate={{ scale: 1.5, opacity: 0 }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute inset-0 rounded-full border border-current"
+                            style={{ color: colors[idx] }}
+                          />
+                        )}
                       </motion.div>
-                      <div className={`text-[9px] uppercase tracking-widest ${isActive ? 'text-white font-medium' : isPast ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div className={`text-[9px] uppercase tracking-widest transition-colors ${isActive ? 'font-bold' : isPast ? 'text-gray-400' : 'text-gray-600'}`} style={{ color: isActive ? colors[idx] : undefined }}>
                         {titles[idx]}
                       </div>
                     </div>
                   );
                 })}
              </div>
+             
+             {/* Dynamic Explainer Panel for Phase 2 Concepts */}
+             <AnimatePresence mode="wait">
+               {expandedNode && (
+                 <motion.div
+                   initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                   animate={{ opacity: 1, height: 'auto', marginTop: 24 }}
+                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                   className="overflow-hidden"
+                 >
+                   <div className="bg-[#050505] border border-white/10 rounded-xl p-5 flex flex-col md:flex-row gap-6 relative">
+                     <button onClick={() => setExpandedNode(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XCircle className="w-4 h-4" /></button>
+                     <div className="md:w-1/2">
+                       <h4 className="text-white text-sm font-medium mb-2">{PHASE2_DETAILS[expandedNode as keyof typeof PHASE2_DETAILS].title}</h4>
+                       <p className="text-gray-400 text-xs leading-relaxed">{PHASE2_DETAILS[expandedNode as keyof typeof PHASE2_DETAILS].desc}</p>
+                     </div>
+                     <div className="md:w-1/2 border-l border-white/5 pl-6 flex flex-col justify-center">
+                       {PHASE2_DETAILS[expandedNode as keyof typeof PHASE2_DETAILS].specs.map((spec, i) => (
+                         <div key={i} className="flex items-center text-[10px] font-mono text-gray-300 mb-1.5">
+                           <ChevronRight className="w-3 h-3 text-emerald-500 mr-2 flex-none" />
+                           {spec}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 </motion.div>
+               )}
+             </AnimatePresence>
           </div>
 
           {/* Bottom: The Cypher Matrix Terminal */}
@@ -283,7 +364,10 @@ export default function App() {
                 <div className="w-2.5 h-2.5 rounded-full bg-white/20"></div>
                 <div className="w-2.5 h-2.5 rounded-full bg-white/20"></div>
               </div>
-              <div className="text-[10px] font-mono text-gray-400 tracking-wider">0xSECURE_PIPELINE</div>
+              <div className="text-[10px] font-mono text-gray-400 tracking-wider flex items-center">
+                <Database className="w-3 h-3 mr-2" />
+                CONCRETE_ML // LWE_STATE_TRACE
+              </div>
             </div>
             <div 
               ref={logRef}
@@ -291,7 +375,7 @@ export default function App() {
             >
               {activeCiphertext.length === 0 ? (
                 <div className="text-gray-600 flex items-center justify-center h-full text-[11px] uppercase tracking-widest">
-                  System Awaiting Input
+                  System Awaiting Transaction Input
                 </div>
               ) : (
                 <AnimatePresence>
@@ -345,23 +429,23 @@ export default function App() {
                   )}
                   
                   <h2 className="text-3xl font-light text-white mb-3">
-                    {fraudData.prob > 0.5 ? "Transaction Declined" : "Verification Successful"}
+                    {fraudData.prob > 0.5 ? "Transaction Blocked by FHE Circuit" : "Verified via Zero-Knowledge"}
                   </h2>
                   <p className="text-gray-400 text-sm mx-auto max-w-md leading-relaxed">
                     {fraudData.prob > 0.5 
-                      ? "The XGBoost FHE circuit detected a high likelihood of fraud based on homomorphic evaluation of encrypted parameters." 
-                      : "The transaction was verified seamlessly via Zero-Knowledge inference. No plaintext data was exposed."}
+                      ? "The compiled Concrete ML XGBoost circuit detected a high likelihood of fraud entirely over encrypted ciphertext." 
+                      : "The transaction was verified strictly over ciphertext. The server learned absolutely zero information about the inputs."}
                   </p>
                 </div>
                 
                 {/* Explainable AI Section */}
                 <div className="bg-[#050505] rounded-xl border border-white/10 p-6 mb-10 text-left">
                   <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
-                    <span className="text-[10px] uppercase tracking-widest text-gray-500">XGBoost SHAP Decision</span>
+                    <span className="text-[10px] uppercase tracking-widest text-gray-500">XGBoost SHAP Decision Drivers</span>
                     <span className="text-sm font-mono text-white">Score: {(fraudData.prob * 100).toFixed(1)}%</span>
                   </div>
                   <div className="space-y-4">
-                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Key Drivers (Decrypted)</div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Primary Factors (Decrypted Locally)</div>
                     {fraudData.factors.map((factor, i) => (
                       <div key={i} className="flex items-center text-sm text-gray-300">
                         <div className={`w-1.5 h-1.5 rounded-full mr-3 ${fraudData.prob > 0.5 ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
@@ -372,7 +456,7 @@ export default function App() {
                 </div>
                 
                 <button 
-                  onClick={() => setStep('IDLE')}
+                  onClick={() => { setStep('IDLE'); setExpandedNode(null); }}
                   className="w-full max-w-xs mx-auto block py-4 border border-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-white hover:text-black transition-all"
                 >
                   Close Secure Session
