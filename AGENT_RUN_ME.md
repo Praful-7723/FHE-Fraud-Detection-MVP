@@ -1,6 +1,6 @@
-# Samsung PRISM: Privacy-Preserving FHE Engine MVP
+# AEGIS-FHE: Privacy-Preserving Validator MVP
 
-This repository contains the Fully Homomorphic Encryption (FHE) MVP developed for the Samsung PRISM Phase 2 presentation. It demonstrates zero-knowledge fraud detection using an encrypted XGBoost model, ensuring that plaintext data is never exposed during inference.
+This repository contains the Fully Homomorphic Encryption (FHE) MVP developed for Phase 2 zero-knowledge evaluation. It demonstrates zero-knowledge fraud detection using an encrypted XGBoost model, ensuring that plaintext data is never exposed during inference.
 
 ## 🎯 Project Overview
 - **Objective:** Evaluate encrypted transaction data without decrypting it server-side.
